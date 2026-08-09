@@ -1,14 +1,24 @@
-# Welcome to your CDK TypeScript project
+# Website Monitoring Lambda (AWS CDK)
 
-This is a blank project for CDK development with TypeScript.
+This project uses AWS CDK to deploy a Lambda function that checks a website and records how it's performing.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## What it does
 
-## Useful commands
+The Lambda function fetches https://www.westernsydney.edu.au/, measures how long it takes to respond, and records the HTTP status code it gets back. Both values are sent to CloudWatch as custom metrics so they can be tracked over time.
 
-* `npm run build`   type-check the project
-* `npm run watch`   watch for changes and type-check
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+## Services used
+
+- AWS Lambda – runs the monitoring code
+- CloudWatch – stores and displays the metrics
+- IAM – gives the Lambda permission to send metrics
+- AWS CDK – defines all of this as code
+
+## How to deploy
+
+Install dependencies, then deploy:
+
+npm install
+cdk bootstrap
+cdk deploy
+
+Once deployed, the terminal will print a URL you can use to test
