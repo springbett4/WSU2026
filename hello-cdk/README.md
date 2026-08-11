@@ -4,7 +4,7 @@ This project uses AWS CDK to deploy a Lambda function that checks a website and 
 
 ## What it does
 
-The Lambda function fetches https://www.westernsydney.edu.au/, measures how long it takes to respond, and records the HTTP status code it gets back. Both values are sent to CloudWatch as custom metrics so they can be tracked over time.
+The Lambda function pings https://www.westernsydney.edu.au/, it times how long it takes to get a response, and logs the HTTP status code that comes back. It then pushes both numbers to CloudWatch as custom metrics, so you can track them over time.
 
 ## Services used
 
@@ -15,10 +15,10 @@ The Lambda function fetches https://www.westernsydney.edu.au/, measures how long
 
 ## How to deploy
 
-Install dependencies, then deploy:
+First, you need to install dependencies, then deploy the following;
 
 npm install
 cdk bootstrap
 cdk deploy
 
-Once deployed, the terminal will print a URL you can use to test
+Once it has deployed, the terminal will then print a URL you can use to test
