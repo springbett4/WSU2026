@@ -1,6 +1,6 @@
-# Website Monitoring Lambda (AWS CDK)
+# Website Monitoring Crawler (AWS CDK)
 
-This project uses AWS CDK to deploy a Lambda function that checks a website and records how it's performing.
+A Lambda function that checks a list of websites every 30 minutes and logs their availability and response time to CloudWatch. Includes a dashboard and alarms.
 
 ## What it does
 
@@ -8,17 +8,38 @@ The Lambda function pings https://www.westernsydney.edu.au/, it times how long i
 
 ## Services used
 
-- AWS Lambda – runs the monitoring code
-- CloudWatch – stores and displays the metrics
-- IAM – gives the Lambda permission to send metrics
-- AWS CDK – defines all of this as code
+- **Lambda** – runs the crawler (`lib/lambda/monitor.js`)
+- **EventBridge** – triggers it every 30 min
+- **CloudWatch** – stores metrics, dashboard, alarms
+- **IAM** – lets Lambda publish metrics
+- **CDK** – defines everything as code (`lib/hello-cdk-stack.ts`)
 
-## How to deploy
+## Sites monitored
 
-First, you need to install dependencies, then deploy the following;
+Edit `lib/lambda/sites.json` to add/remove sites.
+
+## Alarms
+
+Two per site:
+- Availability drops below 1
+- Latency goes above 2000ms
+
+## Deploy
 
 npm install
 cdk bootstrap
 cdk deploy
 
-Once it has deployed, the terminal will then print a URL you can use to test
+## Checking it works
+
+- Manually test: Lambda console → Test tab
+- Or wait ~30 min and check CloudWatch for a new data point
+- Metrics: CloudWatch → Metrics → WebsiteMonitoring
+- Dashboard: CloudWatch → Dashboards → WebsiteMonitoring
+- Alarms: CloudWatch → Alarms (10 total)
+
+## Teardown
+
+cdk destroy
+
+Only removes AWS resources, doesn't touch anything in this repo.
