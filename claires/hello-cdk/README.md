@@ -4,7 +4,14 @@ A Lambda function that checks a list of websites every 30 minutes and logs their
 
 ## What it does
 
-The Lambda function pings https://www.westernsydney.edu.au/, it times how long it takes to get a response, and logs the HTTP status code that comes back. It then pushes both numbers to CloudWatch as custom metrics, so you can track them over time.
+The Lambda reads URLs from `lib/lambda/sites.json`. For each one it:
+- Times how long the request takes (latency)
+- Checks the status code
+- Marks it available (1) or down (0) based on the status code
+
+These get sent to CloudWatch as custom metrics (`WebsiteMonitoring` namespace), tagged by site.
+
+An EventBridge rule triggers the Lambda automatically every 30 minutes.
 
 ## Services used
 
