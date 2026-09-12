@@ -20,6 +20,8 @@ An EventBridge rule triggers the Lambda automatically every 30 minutes.
 - **CloudWatch** – stores metrics, dashboard, alarms
 - **IAM** – lets Lambda publish metrics
 - **CDK** – defines everything as code (`lib/hello-cdk-stack.ts`)
+- **SNS** - sends email notifications when an alrm fires
+- **DynamoDB** - logs every alarm change
 
 ## Sites monitored
 
@@ -30,6 +32,13 @@ Edit `lib/lambda/sites.json` to add/remove sites.
 Two per site:
 - Availability drops below 1
 - Latency goes above 2000ms
+
+# Alarm Notifications
+When an alrm fires
+- An email is sent vis SNS to the subcribed address
+- the alarm details are logged in a row in DynamoDB
+
+to subscribe a new email to alerts, update the 'Email Subscription' address in 'lib/hello-cdk-stack.tc' and redeploy
 
 ## Deploy
 
@@ -44,6 +53,8 @@ cdk deploy
 - Metrics: CloudWatch → Metrics → WebsiteMonitoring
 - Dashboard: CloudWatch → Dashboards → WebsiteMonitoring
 - Alarms: CloudWatch → Alarms (10 total)
+- Alarm notifications: check inbox for SNS email when an alarm fires
+- Alarm log: DynamoDB -> Tables -> AlarmLogTable -> Explore items
 
 ## Teardown
 
