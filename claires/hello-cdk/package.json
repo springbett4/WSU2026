@@ -5,9 +5,16 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "test:integ": "jest --testMatch \"**/*.integ.ts\" --runInBand",
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1149.0",
+    "@aws-sdk/client-cloudwatch": "^3.1149.0",
+    "@aws-sdk/client-dynamodb": "^3.1149.0",
+    "@aws-sdk/client-lambda": "^3.1149.0",
+    "@aws-sdk/client-sns": "^3.1149.0",
+    "@aws-sdk/lib-dynamodb": "^3.1149.0",
     "@swc/core": "^1.15.0",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30",
@@ -18,7 +25,6 @@
     "typescript": "~7.0.2"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudwatch": "^3.1106.0",
     "aws-cdk-lib": "^2.266.0",
     "constructs": "^10.5.0"
   }
