@@ -1,7 +1,7 @@
 jest.mock('../lib/lambda/sites.json', () => [
-    'https://www.google.com',
-    'https://www.amazon.com',
-    'https://www.microsoft.com',
+    'https://working.test',
+    'https://server-error.test',
+    'https://unreachable.test',
 ]);
 
 const mockSiteBehaviour: Record<string, { status?: number; error?: string }> = {

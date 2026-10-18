@@ -1,3 +1,4 @@
+process.env.ALARM_LOG_TABLE = 'TestAlarmLogTable';
 const mockDynamoSend = jest.fn().mockResolvedValue({});
  
 jest.mock('@aws-sdk/client-dynamodb', () => ({

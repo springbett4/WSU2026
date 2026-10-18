@@ -1,7 +1,7 @@
 
 import { CloudFormationClient, ListStackResourcesCommand } from '@aws-sdk/client-cloudformation';
 import { LambdaClient, InvokeCommand, GetFunctionConfigurationCommand } from '@aws-sdk/client-lambda';
-import { CloudWatchClient, ListMetricsCommand, DescribeAlarmsCommand, SetAlarmStateCommand } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchClient, ListMetricsCommand, DescribeAlarmsCommand, SetAlarmStateCommand, GetMetricStatisticsCommand } from '@aws-sdk/client-cloudwatch';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
@@ -22,7 +22,6 @@ let monitorFunctionName: string;
 let topicArn: string;
 let tableName: string;
 let alarmNames: string[];
-
 
 async function stackResources(type: string): Promise<string[]> {
   const ids: string[] = [];
@@ -88,15 +87,28 @@ describe('Integration tests - Web health stack (real AWS)', () => {
   });
 
   test('2. Lambda metrics arrive in CloudWatch for every site', async () => {
-    for (const site of sites) {
-      const result = await cloudwatch.send(new ListMetricsCommand({
-        Namespace: 'WebsiteMonitoring',
-        MetricName: 'Availability',
-        Dimensions: [{ Name: 'Target', Value: site }],
-      }));
-      expect(result.Metrics?.length).toBeGreaterThan(0);
-    }
-  });
+    const missing: string[] = [];
+
+    await Promise.all(sites.map(async (site) => {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const stats = await cloudwatch.send(new GetMetricStatisticsCommand({
+          Namespace: 'WebsiteMonitoring',
+          MetricName: 'Availability',
+          Dimensions: [{ Name: 'Target', Value: site }],
+          StartTime: new Date(Date.now() - 60 * 60 * 1000), // last hour
+          EndTime: new Date(),
+          Period: 60,
+          Statistics: ['SampleCount'],
+        }));
+        if (stats.Datapoints && stats.Datapoints.length > 0) return; // found it
+        await sleep(3000);
+      }
+      missing.push(site);
+    }));
+
+    if (missing.length) console.log('No metrics found for:', missing);
+    expect(missing).toEqual([]);
+  }, 180000);
 
   test('3. SNS message is logged to DynamoDB by the logger Lambda', async () => {
     const alarmName = `IntegrationTest-${Date.now()}`;
