@@ -1,3 +1,92 @@
+# Website Monitoring Crawler (AWS CDK)
+
+A serverless website monitor built with AWS CDK. A Lambda function checks a list of websites every 30 minutes and records their availability and response time in CloudWatch. It includes a dashboard, alarms, email alerts and an alarm log.
+
+## What it does
+
+The Lambda reads URLs from `lib/lambda/sites.json`. For each one, it:
+- Times how long the request takes (latency)
+- Checks the status code
+- Marks the site as available (1) or down (0), based on the status code
+
+These are sent to CloudWatch as custom metrics (in the `WebsiteMonitoring` namespace), tagged by site.
+
+An EventBridge rule triggers the Lambda automatically every 30 minutes.
+
+## How it fits together
+
+```
+EventBridge (every 30 min)
+   └─> Monitor Lambda ──> websites
+          └─> CloudWatch metrics ──> Dashboard
+                    └─> Alarms ──> SNS ──> Email
+                                     └─> Alarm Logger Lambda ──> DynamoDB (AlarmLogTable)
+```
+
+## Services used
+
+- **Lambda:** runs the crawler (`lib/lambda/monitor.js`) and the alarm logger (`lib/lambda/alarmLogger.js`)
+- **EventBridge:** triggers the crawler every 30 minutes
+- **CloudWatch:** stores the metrics, and runs the dashboard and alarms
+- **SNS:** sends email notifications when an alarm fires
+- **DynamoDB:** logs every alarm change
+- **IAM:** gives each Lambda only the permissions it needs
+- **CDK:** defines everything as code (`lib/hello-cdk-stack.ts`)
+
+## Project structure
+
+```
+hello-cdk/
+├── bin/hello-cdk.ts            # CDK app entry point
+├── lib/
+│   ├── hello-cdk-stack.ts      # All AWS resources (infrastructure as code)
+│   └── lambda/
+│       ├── monitor.js          # Crawler Lambda
+│       ├── alarmLogger.js      # Alarm logger Lambda
+│       └── sites.json          # List of websites to monitor
+└── test/
+    ├── hello-cdk.test.ts       # Unit tests
+    ├── monitor.test.ts         # Functional tests (crawler)
+    ├── alarmLogger.test.ts     # Functional tests (alarm logger)
+    └── webhealth.integ.ts      # Integration tests
+```
+
+## Sites monitored
+
+Edit `lib/lambda/sites.json` to add or remove sites, then redeploy. Alarms are created automatically for each site.
+
+## Alarms
+
+There are two alarms per site:
+- **Availability:** fires when availability drops below 1
+- **Latency:** fires when the response time goes above 2000 ms
+
+## Alarm notifications
+
+When an alarm fires:
+- An email is sent via SNS to the subscribed address
+- The alarm details are logged as a row in DynamoDB (alarm name, state, reason, metric, site and time)
+
+To send alerts to a new email address, update the email subscription address in `lib/hello-cdk-stack.ts` and redeploy. AWS then sends a confirmation email, and the new address must click **Confirm subscription** before it receives alerts.
+
+## Deploy
+
+```bash
+npm install
+cdk bootstrap
+cdk deploy
+```
+
+## Checking it works
+
+- **Manual test:** Lambda console → Test tab
+- **Or** wait about 30 minutes and check CloudWatch for a new data point
+- **Metrics:** CloudWatch → Metrics → WebsiteMonitoring
+- **Dashboard:** CloudWatch → Dashboards → WebsiteMonitoring
+- **Alarms:** CloudWatch → Alarms (2 per site)
+- **Alarm notifications:** check the inbox for an SNS email when an alarm fires
+- **Alarm log:** DynamoDB → Tables → AlarmLogTable → Explore items
+
 ## Testing
 
 The project has **22 automated tests** across three levels, written in **TypeScript** with **Jest**.
@@ -73,3 +162,18 @@ These run against the **deployed stack**. Resource names are looked up from Clou
 - **Performance:** the latency alarm is set at 2000 ms, and sites are checked in parallel. *(Unit 7, Functional 3, Integration 1)*
 - **Reliability:** a 10 second timeout, unreachable sites are still recorded as down, and every alarm is logged. *(Unit 2, Functional 2, Integration 3–4)*
 - **Usability:** one dashboard covers all sites, and alerts arrive by email. *(Unit 5, Unit 8, Integration 4)*
+
+### References
+
+- [AWS CDK – Testing constructs](https://docs.aws.amazon.com/cdk/v2/guide/testing.html)
+- [CDK assertions module](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.assertions-readme.html)
+- [Jest – Mock functions](https://jestjs.io/docs/mock-functions)
+- [CloudWatch SetAlarmState API](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_SetAlarmState.html)
+
+## Teardown
+
+```bash
+cdk destroy
+```
+
+This only removes the AWS resources. It doesn't touch anything in this repo.
