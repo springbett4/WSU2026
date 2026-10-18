@@ -3,6 +3,21 @@ const https = require('https');
 const { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
 
 const cloudwatch = new CloudWatchClient({});
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+// Read the target list from DynamoDB (falls back to sites.json if it can't)
+async function getTargets() {
+  if (!process.env.TARGETS_TABLE) return sites;
+  try {
+    const result = await docClient.send(new ScanCommand({ TableName: process.env.TARGETS_TABLE }));
+    return (result.Items || []).map((item) => item.url);
+  } catch (err) {
+    console.error('Could not read target list, using sites.json:', err.message);
+    return sites;
+  }
+}
 
 function checkSite(url) {
   const startTime = Date.now();
@@ -82,7 +97,8 @@ function checkSite(url) {
 };
 
 exports.handler = async function (event) {
-  const results = await Promise.all(sites.map(url => checkSite(url)));
+  const targetList = await getTargets();
+  const results = await Promise.all(targetList.map(url => checkSite(url)));  
   return {
     statusCode: 200,
     body: JSON.stringify(results),

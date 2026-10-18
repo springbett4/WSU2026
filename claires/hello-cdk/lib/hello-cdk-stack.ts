@@ -9,6 +9,8 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cw_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cr from 'aws-cdk-lib/custom-resources';
 
 
 export class HelloCdkStack extends cdk.Stack {
@@ -59,7 +61,84 @@ export class HelloCdkStack extends cdk.Stack {
 
     alarmTopic.addSubscription(new subscriptions.LambdaSubscription(alarmLoggerFunction));
 
-    const sites = require('./lambda/sites.json');
+
+    const targetsTable = new dynamodb.Table(this, 'TargetsTable', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+
+    targetsTable.grantReadData(myFunction);
+    myFunction.addEnvironment('TARGETS_TABLE', targetsTable.tableName);
+
+    const sites: string[] = require('./lambda/sites.json');
+    new cr.AwsCustomResource(this, 'SeedTargetsTable', {
+      onCreate: {
+        service: 'DynamoDB',
+        action: 'batchWriteItem',
+        parameters: {
+          RequestItems: {
+            [targetsTable.tableName]: sites.map((url) => ({
+              PutRequest: {
+                Item: {
+                  id: { S: url.replace(/[^a-zA-Z0-9]/g, '') },
+                  url: { S: url },
+                },
+              },
+            })),
+          },
+        },
+        physicalResourceId: cr.PhysicalResourceId.of('SeedTargetsTable'),
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [targetsTable.tableArn] }),
+    });
+
+    const crudFunction = new lambda.Function(this, 'CrudFunction', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'crud.handler',
+      code: lambda.Code.fromAsset('lib/lambda'),
+      timeout: cdk.Duration.seconds(10),
+      environment: { TARGETS_TABLE: targetsTable.tableName },
+    });
+    targetsTable.grantReadWriteData(crudFunction);
+
+    const api = new apigateway.RestApi(this, 'SitesApi', {
+      restApiName: 'Website Monitor Target API',
+      description: 'CRUD API for the list of websites the crawler monitors',
+      deployOptions: {
+        stageName: 'v1',
+        throttlingRateLimit: 10,   // security: limits requests per second
+        throttlingBurstLimit: 20,
+      },
+    });
+
+    const crudIntegration = new apigateway.LambdaIntegration(crudFunction);
+
+    const sitesResource = api.root.addResource('sites');
+    sitesResource.addMethod('GET', crudIntegration);   
+    sitesResource.addMethod('POST', crudIntegration);  
+
+    const siteResource = sitesResource.addResource('{id}');
+    siteResource.addMethod('GET', crudIntegration);     
+    siteResource.addMethod('PUT', crudIntegration);    
+    siteResource.addMethod('DELETE', crudIntegration);  
+    new cdk.CfnOutput(this, 'SitesApiUrl', { value: `${api.url}sites` });
+    new cdk.CfnOutput(this, 'TargetsTableName', { value: targetsTable.tableName });
+
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'All sites - Availability',
+        width: 24,
+        left: [
+          new cloudwatch.MathExpression({
+            expression: "SEARCH('{WebsiteMonitoring,Target} MetricName=\"Availability\"', 'Average', 1800)",
+            usingMetrics: {},
+            label: '',
+          }),
+        ],
+      }),
+    );
+
+
     for (const url of sites) {
       dashboard.addWidgets(
         new cloudwatch.GraphWidget({

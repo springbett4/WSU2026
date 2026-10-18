@@ -60,9 +60,9 @@ beforeAll(async () => {
   for (const name of await stackResources('AWS::Lambda::Function')) {
     const config = await lambda.send(new GetFunctionConfigurationCommand({ FunctionName: name }));
     if (config.Handler === 'monitor.handler') monitorFunctionName = name;
+      if (config.Handler === 'alarmLogger.handler') tableName = config.Environment?.Variables?.ALARM_LOG_TABLE!;
   }
   [topicArn] = await stackResources('AWS::SNS::Topic');
-  [tableName] = await stackResources('AWS::DynamoDB::Table');
   alarmNames = await stackResources('AWS::CloudWatch::Alarm');
 
   if (!monitorFunctionName || !topicArn || !tableName || alarmNames.length === 0) {
